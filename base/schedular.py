@@ -32,6 +32,14 @@ class LinearNoiseSchedular:
         x0 = xt - (self.sqrt_one_alphas_cum_prod[t] * noise_pred) / self.sqrt_alphas_cum_prod[t]
         x0 = torch.clamp(x0, -1.0, 1.0)
 
-        mean = xt - (())
+        mean = xt - ((self.betas[t] * noise_pred) / (self.sqrt_one_alphas_cum_prod[t]))
+        mean = mean / torch.sqrt(self.alphas[t])
 
-        
+        if t == 0:
+            return mean, x0
+        else:
+            variance = (1 - self.alpha_cum_prod[t-1]) / (1.0 - self.alpha_cum_prod[t])
+            variance = variance * self.betas[t]
+            sigma = variance ** 0.5
+            z = torch.randn(xt.shape).to(xt.device)
+            return mean + sigma*z, x0
