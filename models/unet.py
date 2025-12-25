@@ -31,7 +31,7 @@ class SelfAttention(nn.Module):
 class Convolution(nn.Module):
 
     def __init__(self, in_channels, out_channels, mid_channels= None, residual= False):
-        super().__init__()
+        super(Convolution, self).__init__()
         
         self.residual = residual
         if mid_channels is None:
@@ -50,15 +50,15 @@ class Convolution(nn.Module):
         if self.residual:
             return F.gelu(x + self.conv_layer(x))
         else:
-            self.conv_layer(x)
+            return self.conv_layer(x)
 
 class Upsampling(nn.Module):
 
     def __init__(self, in_channels, out_channels, embedding= 256):
+        super(Upsampling, self).__init__()
 
         self.up_sample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.layers = nn.Sequential(
-            nn.MaxPool2d(2),
             Convolution(in_channels, in_channels, residual= True),
             Convolution(in_channels, out_channels)
         )
@@ -79,6 +79,7 @@ class Upsampling(nn.Module):
 class DownSampling(nn.Module):
 
     def __init__(self, in_channels, out_channels, embedding= 256):
+        super(DownSampling, self).__init__()
 
         self.down_sample = nn.Sequential(
             nn.MaxPool2d(2),
@@ -92,7 +93,6 @@ class DownSampling(nn.Module):
         )
 
     def forward(self, x, t):
-
         x = self.down_sample(x)
         t = self.emb_layer(t)[:,:, None, None].repeat(1, 1, x.shape[-2], x.shape[-1])
         return x + t
@@ -101,6 +101,7 @@ class DownSampling(nn.Module):
 class UNet(nn.Module):
 
     def __init__(self, in_channels, out_channels, tdim):
+        super(UNet, self).__init__()
 
         self.tdim = tdim
         self.inc = Convolution(in_channels, 64)
@@ -157,5 +158,5 @@ class UNet(nn.Module):
     
     def forward(self, x, t):
         t = t.unsqueeze(-1)
-        t = self.pos_encoding(t, self.time_dim)
+        t = self.pos_encoding(t, self.tdim)
         return self.unet_forwad(x, t)

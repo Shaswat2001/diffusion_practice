@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import torchvision
+from PIL import Image
 
 def extract_tensor_from_value(arr, timesteps, broadcast_shape):
 
@@ -70,3 +72,9 @@ def discretized_gaussian_log_likelihood(x, *, means, log_scales):
     )
     assert log_probs.shape == x.shape
     return log_probs
+
+def save_images(images, path, **kwargs):
+    grid = torchvision.utils.make_grid(images, **kwargs)
+    ndarr = grid.permute(1, 2, 0).to('cpu').numpy()
+    im = Image.fromarray(ndarr)
+    im.save(path)

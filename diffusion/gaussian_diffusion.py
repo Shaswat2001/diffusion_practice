@@ -19,6 +19,9 @@ class DDPMGaussianDiffusion:
         self.schedular = schedulars[self.config["schedular"]["type"]](**self.config["schedular"])
         self.diffusion_steps = self.config["schedular"]["diffusion_steps"]
 
+    def sample_timesteps(self, n):
+        return torch.randint(low=1, high=self.diffusion_steps, size=(n,))
+
     def q_mean_variance(self, x, t):
 
         mean = extract_tensor_from_value(self.schedular.alpha_cumprod, t, x.shape) * x
@@ -175,7 +178,6 @@ class DDPMGaussianDiffusion:
         if noise is None:
             noise = torch.randn_like(x_start)
         x_t = self.q_sample(x_start, t, noise=noise)
-
         terms = {}
 
         if self.config["loss_type"] == "kl" or self.config["loss_type"] == "rescaled_kl":
@@ -189,6 +191,19 @@ class DDPMGaussianDiffusion:
             )["output"]
             if self.config["loss_type"] == "rescaled_kl":
                 terms["loss"] *= self.diffusion_steps
+
+        elif self.config["loss_type"] == "mse" or self.config["loss_type"] == "rescaled_mse":
+            model_output = model(x_t, t, **model_kwargs)
+
+            if self.config["model_output"] == "start_x":
+                target = x_start
+            elif self.config["model_output"] == "epsilon":
+                target = noise
+            else:
+                target = self.q_posterior_mean_variance(x_t, x_start, t)[0]
+
+            assert model_output.shape == target.shape == x_start.shape
+            terms["loss"] = mean_flat((target - model_output) ** 2)
 
         else:
             raise NotImplementedError(self.config["loss_type"])
