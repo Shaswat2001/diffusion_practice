@@ -24,7 +24,7 @@ def train(args):
         )
 
     os.makedirs("results", exist_ok=True)
-    os.makedirs(os.path.join("models", args.run_name), exist_ok=True)
+    os.makedirs(os.path.join("checkpoint", args.run_name), exist_ok=True)
 
 
     dataset_loader = DatasetLoader(name= args.dataset_name, batch_size= args.batch_size)
@@ -79,7 +79,7 @@ def train(args):
                 step=global_step
             )
 
-        ckpt_path = os.path.join("models", args.run_name, "ckpt.pt")
+        ckpt_path = os.path.join("checkpoint", args.run_name, "ckpt.pt")
         torch.save(model.state_dict(), ckpt_path)
 
     if args.use_wandb:
