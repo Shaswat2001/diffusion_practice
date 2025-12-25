@@ -8,7 +8,7 @@ from misc.diffusion_utils import extract_tensor_from_value, gaussian_kl, mean_fl
 
 ROOT = Path(__file__).resolve().parent.parent
 
-class GaussianDiffusion:
+class DDPMGaussianDiffusion:
 
     def __init__(self):
         config_path = ROOT / "config" / "gaussian_diffusion.yaml"
@@ -194,4 +194,3 @@ class GaussianDiffusion:
             raise NotImplementedError(self.config["loss_type"])
 
         return terms
-        
