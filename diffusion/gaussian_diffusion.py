@@ -54,13 +54,13 @@ class DDPMGaussianDiffusion:
     
     def calculate_x_start_from_epsilon(self, x_t, t, epsilon):
         assert x_t.shape == epsilon.shape
-        return extract_tensor_from_value(self.schedular.sqrt_recip_alpha_cumprod, t, x_t.shape) * x_t - \
-            extract_tensor_from_value(self.schedular.sqrt_recip1_alpha_cumprod, t, x_t.shape) * epsilon
+        return extract_tensor_from_value(self.schedular.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - \
+            extract_tensor_from_value(self.schedular.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * epsilon
     
     def calculate_eps_from_xstart(self, x_t, t, pred_xstart):
         return (
-            extract_tensor_from_value(self.sqrt_recip_alpha_cumprod, t, x_t.shape) * x_t - pred_xstart
-        ) / extract_tensor_from_value(self.sqrt_recip1_alpha_cumprod, t, x_t.shape)
+            extract_tensor_from_value(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - pred_xstart
+        ) / extract_tensor_from_value(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape)
     
     def process_state(self, x, denoised_clip: bool = False, denoise_fun = None):
 
@@ -113,7 +113,7 @@ class DDPMGaussianDiffusion:
         else:
             pred_x_start = self.process_state(self.calculate_x_start_from_epsilon(x, t, epsilon=model_output), denoised_clip, denoise_fun)
         
-        model_mean, _, _ = self.q_posterior_mean_variance(x, pred_x_start, t)
+        model_mean, model_variance, log_variance = self.q_posterior_mean_variance(x, pred_x_start, t)
 
         return {
             "mean": model_mean,
@@ -138,13 +138,13 @@ class DDPMGaussianDiffusion:
         timesteps = list(reversed(range(self.diffusion_steps)))
 
         if noise is None:
-            img = torch.randn_like(*shape, dtype=torch.float32)
+            img = torch.randn(shape, dtype=torch.float32)
         else:
             img = noise
 
         for t in timesteps:
-
-            output = self.p_sample(model, img, t, denoised_clip, denoise_fun, model_kwargs)
+            tm = torch.tensor([t] * shape[0])
+            output = self.p_sample(model, img, tm, denoised_clip, denoise_fun, model_kwargs)
             img = output["sample"]
 
         return img

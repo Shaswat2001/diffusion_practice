@@ -75,6 +75,19 @@ def discretized_gaussian_log_likelihood(x, *, means, log_scales):
 
 def save_images(images, path, **kwargs):
     grid = torchvision.utils.make_grid(images, **kwargs)
-    ndarr = grid.permute(1, 2, 0).to('cpu').numpy()
+
+    # [-1, 1] → [0, 1]
+    grid = (grid + 1) / 2
+    grid = grid.clamp(0, 1)
+
+    # CHW → HWC, float → uint8
+    ndarr = (
+        grid.permute(1, 2, 0)
+        .mul(255)
+        .byte()
+        .cpu()
+        .numpy()
+    )
+
     im = Image.fromarray(ndarr)
     im.save(path)

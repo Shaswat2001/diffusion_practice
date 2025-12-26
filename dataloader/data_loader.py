@@ -5,16 +5,17 @@ import torchvision.transforms as transforms
 
 class DatasetLoader:
 
-    def __init__(self, name="cifar10", batch_size= 4):
+    def __init__(self, name="cifar10", batch_size= 4, image_size= 32):
 
         self.batch_size = batch_size
+        self.image_size = image_size
         self._load(name)
 
     def _load(self, name= "cifar10"):
 
         transform = transforms.Compose(
-           [transforms.Resize(32 + int(.25*32)),  # args.img_size + 1/4 *args.img_size
-            transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
+           [transforms.Resize(self.image_size + int(.25*self.image_size)),  # args.img_size + 1/4 *args.img_size
+            transforms.RandomResizedCrop(self.image_size, scale=(0.8, 1.0)),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         

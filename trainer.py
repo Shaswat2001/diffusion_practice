@@ -26,8 +26,7 @@ def train(args):
     os.makedirs("results", exist_ok=True)
     os.makedirs(os.path.join("checkpoint", args.run_name), exist_ok=True)
 
-
-    dataset_loader = DatasetLoader(name= args.dataset_name, batch_size= args.batch_size)
+    dataset_loader = DatasetLoader(name= args.dataset_name, batch_size= args.batch_size, image_size= args.image_size)
     model = UNet(in_channels= 3, out_channels= 3, tdim= 256)
     diffusion = DDPMGaussianDiffusion()
     
@@ -68,7 +67,7 @@ def train(args):
         model.eval()
 
         with torch.no_grad():
-            sampled_images = diffusion.p_reverse(model, shape=images.shape)
+            sampled_images = diffusion.p_reverse(model, shape=images[:3].shape)
 
         sample_path = os.path.join("results", f"{epoch}.jpg")
         save_images(sampled_images, sample_path)
@@ -93,9 +92,9 @@ if __name__ == "__main__":
     parser.add_argument("--use_wandb", action="store_true")
     parser.add_argument("--wandb_project", type=str, default="ddpm")
 
-    parser.add_argument("--epochs", type=int, default=500)
-    parser.add_argument("--batch_size", type=int, default=12)
-    parser.add_argument("--image_size", type=int, default=64)
+    parser.add_argument("--epochs", type=int, default=25)
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--image_size", type=int, default=32)
     parser.add_argument("--dataset_name", type=str, default="cifar10")
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--lr", type=float, default=3e-4)
