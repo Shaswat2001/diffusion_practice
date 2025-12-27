@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch import optim
 
-from diffusion import DDPMGaussianDiffusion
+from diffusion import diffusion_models
 from misc.diffusion_utils import save_images
 from dataloader import DatasetLoader
 from models import UNet
@@ -28,7 +28,7 @@ def train(args):
 
     dataset_loader = DatasetLoader(name= args.dataset_name, batch_size= args.batch_size, image_size= args.image_size)
     model = UNet(in_channels= 3, out_channels= 3, tdim= 256)
-    diffusion = DDPMGaussianDiffusion()
+    diffusion = diffusion_models[args.model]()
     
     global_step = 0
 
@@ -95,6 +95,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--image_size", type=int, default=32)
+    parser.add_argument("--model", type=str, default="ddpm")
     parser.add_argument("--dataset_name", type=str, default="cifar10")
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--lr", type=float, default=3e-4)

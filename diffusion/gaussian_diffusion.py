@@ -8,7 +8,7 @@ from misc.diffusion_utils import extract_tensor_from_value, gaussian_kl, mean_fl
 
 ROOT = Path(__file__).resolve().parent.parent
 
-class DDPMGaussianDiffusion:
+class GaussianDiffusion:
 
     def __init__(self):
         config_path = ROOT / "config" / "gaussian_diffusion.yaml"
@@ -21,6 +21,18 @@ class DDPMGaussianDiffusion:
 
     def sample_timesteps(self, n):
         return torch.randint(low=1, high=self.diffusion_steps, size=(n,))
+    
+    def q_posterior_mean_variance(self, x_t, x_start, t):
+
+        assert x_t.shape == x_start.shape
+
+        mean = extract_tensor_from_value(self.schedular.coefficient1, t, x_start.shape) * x_start + \
+            extract_tensor_from_value(self.schedular.coefficient2, t, x_start.shape) * x_t
+        
+        variance = extract_tensor_from_value(self.schedular.posterior_variance, t, x_start.shape)
+        log_variance = extract_tensor_from_value(self.schedular.posterior_log_variance_clipped, t, x_start.shape)
+
+        return mean, variance, log_variance
 
     def q_mean_variance(self, x, t):
 
@@ -39,19 +51,7 @@ class DDPMGaussianDiffusion:
 
         return extract_tensor_from_value(self.schedular.sqrt_alphas_cumprod, t, x_start.shape) * x_start + \
                 extract_tensor_from_value(self.schedular.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
-    
-    def q_posterior_mean_variance(self, x_t, x_start, t):
-
-        assert x_t.shape == x_start.shape
-
-        mean = extract_tensor_from_value(self.schedular.coefficient1, t, x_start.shape) * x_start + \
-            extract_tensor_from_value(self.schedular.coefficient2, t, x_start.shape) * x_t
         
-        variance = extract_tensor_from_value(self.schedular.posterior_variance, t, x_start.shape)
-        log_variance = extract_tensor_from_value(self.schedular.posterior_log_variance_clipped, t, x_start.shape)
-
-        return mean, variance, log_variance
-    
     def calculate_x_start_from_epsilon(self, x_t, t, epsilon):
         assert x_t.shape == epsilon.shape
         return extract_tensor_from_value(self.schedular.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - \
@@ -71,7 +71,7 @@ class DDPMGaussianDiffusion:
             return x.clamp(-1, 1)
         
         return x
-
+    
     def p_mean_variance(self, model, x, t, denoised_clip: bool = False, denoise_fun = None, model_kwargs=None):
         
         if model_kwargs is None:
@@ -122,32 +122,6 @@ class DDPMGaussianDiffusion:
             "pred_xstart": pred_x_start,
             "extra": extra,
         }
-
-    def p_sample(self, model, x, t, denoised_clip: bool = False, denoise_fun = None, model_kwargs=None):
-
-        output = self.p_mean_variance(model, x, t, denoised_clip, denoise_fun, model_kwargs)
-        noise = torch.randn_like(x, dtype=torch.float32)
-        nonzero_mask = ((t != 0).float().view(-1, *([1] * (len(x.shape) - 1))))  # no noise when t == 0
-        sample = output["mean"] + nonzero_mask * torch.exp(0.5 * output["log_variance"]) * noise
-        return {"sample": sample, "pred_xstart": output["pred_xstart"]}
-    
-    def p_reverse(self, model, shape, noise = None, denoised_clip: bool = False, denoise_fun = None, model_kwargs=None):
-
-        assert isinstance(shape, (tuple, list))
-
-        timesteps = list(reversed(range(self.diffusion_steps)))
-
-        if noise is None:
-            img = torch.randn(shape, dtype=torch.float32)
-        else:
-            img = noise
-
-        for t in timesteps:
-            tm = torch.tensor([t] * shape[0])
-            output = self.p_sample(model, img, tm, denoised_clip, denoise_fun, model_kwargs)
-            img = output["sample"]
-
-        return img
     
     def variational_lower_bound(self, model, x_start, x_t, t, denoised_clip=True, model_kwargs=None):
 
@@ -155,14 +129,10 @@ class DDPMGaussianDiffusion:
 
         output = self.p_mean_variance(model, x_t, t, denoised_clip, None, model_kwargs)
 
-        kl = gaussian_kl(
-            true_mean, true_log_variance, output["mean"], output["log_variance"]
-        )
+        kl = gaussian_kl(true_mean, true_log_variance, output["mean"], output["log_variance"])
         kl = mean_flat(kl) / np.log(2.0)
 
-        decoder_nll = -discretized_gaussian_log_likelihood(
-            x_start, means=output["mean"], log_scales=0.5 * output["log_variance"]
-        )
+        decoder_nll = -discretized_gaussian_log_likelihood(x_start, means=output["mean"], log_scales=0.5 * output["log_variance"])
         assert decoder_nll.shape == x_start.shape
         decoder_nll = mean_flat(decoder_nll) / np.log(2.0)
 
